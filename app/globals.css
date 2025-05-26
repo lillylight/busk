@@ -56,3 +56,19 @@ body {
     @apply border-border;
   }
 }
+
+/* Hide scrollbars completely */
+/* For Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: none;
+}
+
+/* For IE and Edge Legacy */
+* {
+  -ms-overflow-style: none;
+}
