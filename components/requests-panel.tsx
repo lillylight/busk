@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Mic, Music, MessageSquare, Send } from "lucide-react"
+import { Mic, Music, MessageSquare, Send, Clock, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 
 interface RequestsPanelProps {
@@ -23,15 +25,13 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
   const [userLocation, setUserLocation] = useState("")
   const [message, setMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [djInteractionActive, setDjInteractionActive] = useState(false)
-  const [djInteractionTimer, setDjInteractionTimer] = useState<NodeJS.Timeout | null>(null)
-  const [callInDuration, setCallInDuration] = useState<number>(30) // seconds
-  const [callInCountdown, setCallInCountdown] = useState<number>(30)
+  const [callInCountdown, setCallInCountdown] = useState<number>(0)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [queuePosition, setQueuePosition] = useState<number | null>(null)
   const { toast } = useToast()
 
   // For future: dual-host selection (stub)
-  const [selectedHost, setSelectedHost] = useState<string>("") // For dual-host talk shows
+  const [selectedHost, setSelectedHost] = useState<string>("")
 
   const musicRequests = [
     {
@@ -39,20 +39,29 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
       name: "Shoutout",
       description: "Get your name mentioned on air",
       icon: <MessageSquare size={20} />,
+      color: "from-purple-500 to-pink-500",
     },
     {
       id: "dedication",
       name: "Song Dedication",
       description: "Dedicate a song to someone special",
       icon: <Music size={20} />,
+      color: "from-blue-500 to-cyan-500",
     },
     {
       id: "request",
       name: "Song Request",
       description: "Request a song to be generated and played",
       icon: <Music size={20} />,
+      color: "from-green-500 to-emerald-500",
     },
-    { id: "callIn", name: "Call In", description: "Talk to the DJ live on air", icon: <Mic size={20} /> },
+    { 
+      id: "callIn", 
+      name: "Call In", 
+      description: "Talk to the DJ live on air", 
+      icon: <Mic size={20} />,
+      color: "from-orange-500 to-red-500",
+    },
   ]
 
   const talkRequests = [
@@ -61,20 +70,29 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
       name: "Ask a Question",
       description: "Have your question answered on air",
       icon: <MessageSquare size={20} />,
+      color: "from-purple-500 to-pink-500",
     },
     {
       id: "topic",
       name: "Suggest a Topic",
       description: "Suggest a topic for discussion",
       icon: <MessageSquare size={20} />,
+      color: "from-blue-500 to-cyan-500",
     },
     {
       id: "debate",
       name: "Join a Debate",
       description: "Join a debate on the current topic",
       icon: <Mic size={20} />,
+      color: "from-green-500 to-emerald-500",
     },
-    { id: "callIn", name: "Call In", description: "Talk to the host live on air", icon: <Mic size={20} /> },
+    { 
+      id: "callIn", 
+      name: "Call In", 
+      description: "Talk to the host live on air", 
+      icon: <Mic size={20} />,
+      color: "from-orange-500 to-red-500",
+    },
   ]
 
   const requests = currentShow.type === "music" ? musicRequests : talkRequests
@@ -84,39 +102,19 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
     setRequestType(id)
   }
 
-  const handleDjInteraction = (duration: number = 30) => {
-    setDjInteractionActive(true)
-    setCallInCountdown(duration)
-    if (djInteractionTimer) clearTimeout(djInteractionTimer)
-    // Start countdown interval
-    const interval = setInterval(() => {
-      setCallInCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          setDjInteractionActive(false)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-    // Safety: also set a timeout to force end
-    const timer = setTimeout(() => {
-      setDjInteractionActive(false)
-      setCallInCountdown(0)
-      clearInterval(interval)
-    }, duration * 1000)
-    setDjInteractionTimer(timer)
-  }
-
+  // Countdown timer for call-in only
   useEffect(() => {
-    return () => {
-      if (djInteractionTimer) clearTimeout(djInteractionTimer)
+    if (callInCountdown > 0) {
+      const timer = setTimeout(() => {
+        setCallInCountdown(callInCountdown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
     }
-  }, [djInteractionTimer])
+  }, [callInCountdown])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Only trigger AI DJ interaction for call-in
+    
     if (requestType === "callIn") {
       if (!userName.trim() || !userLocation.trim()) {
         toast({
@@ -128,7 +126,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
       }
       // Show payment modal before proceeding
       setShowPaymentModal(true)
-      return // Do not proceed until payment is handled
+      return
     } else {
       if (!userName.trim() || !message.trim()) {
         toast({
@@ -138,8 +136,8 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
         })
         return
       }
-      // Do NOT trigger AI DJ call-in logic for other types
     }
+    
     setIsSubmitting(true)
     try {
       if (onRequestSuccess) {
@@ -149,13 +147,23 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
           onRequestSuccess(requestType, message, userName)
         }
       }
+      
+      // Show queue position for non-call-in requests
+      if (requestType !== "callIn") {
+        setQueuePosition(Math.floor(Math.random() * 5) + 1)
+        setTimeout(() => setQueuePosition(null), 5000)
+      }
+      
       // Reset form
       setMessage("")
       setUserLocation("")
       setSelectedRequest(null)
+      
       toast({
         title: "Request Submitted",
-        description: "Your request has been submitted successfully!",
+        description: requestType === "shoutout" 
+          ? "Your shoutout will be read on air soon!" 
+          : "Your request has been submitted successfully!",
         duration: 5000,
       })
     } catch (error) {
@@ -172,184 +180,220 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
 
   // Handle payment confirmation for call-in
   const handlePayment = (duration: number) => {
-    setCallInDuration(duration)
     setShowPaymentModal(false)
-    setTimeout(() => {
-      handleDjInteraction(duration)
-      toast({
-        title: "Payment Successful",
-        description: `You have paid $${duration/30*2} for ${duration} seconds with the DJ!`,
-        duration: 3500,
-      })
-    }, 400) // Simulate payment delay
+    setCallInCountdown(duration)
+    
+    if (onRequestSuccess) {
+      // Pass duration as part of the message
+      onRequestSuccess("callIn", duration.toString(), userName, userLocation)
+    }
+    
+    toast({
+      title: "Payment Successful",
+      description: `You have ${duration} seconds to interact with the DJ!`,
+      duration: 3500,
+    })
+    
+    // Reset form
+    setUserName("")
+    setUserLocation("")
+    setSelectedRequest(null)
   }
 
   return (
     <div className="space-y-4">
       {/* Payment Modal for Call-In */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-xs w-full">
-            <h4 className="font-semibold mb-2">Select Call-In Duration</h4>
-            <p className="mb-4 text-sm text-gray-600">$2 for 30s, $4 for 60s, $6 for 90s (max)</p>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-zinc-900 p-6 rounded-lg shadow-xl max-w-sm w-full"
+          >
+            <h4 className="font-semibold text-lg mb-3">Select Call-In Duration</h4>
+            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              Choose how long you'd like to talk with the DJ
+            </p>
             <div className="space-y-2 mb-4">
-              {[30,60,90].map((d) => (
-                <Button key={d} className="w-full justify-between" onClick={() => handlePayment(d)}>
-                  {d/30*2}$ - {d} seconds
+              {[
+                { duration: 30, price: 2, label: "30 seconds" },
+                { duration: 60, price: 4, label: "1 minute" },
+                { duration: 90, price: 6, label: "1.5 minutes" },
+              ].map((option) => (
+                <Button 
+                  key={option.duration} 
+                  className="w-full justify-between group hover:shadow-md transition-all"
+                  variant="outline"
+                  onClick={() => handlePayment(option.duration)}
+                >
+                  <span className="font-medium">${option.price}</span>
+                  <span className="text-sm">{option.label}</span>
+                  <Badge className="ml-2 bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                    Popular
+                  </Badge>
                 </Button>
               ))}
             </div>
-            <Button variant="outline" className="w-full" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
-          </div>
+            <Button 
+              variant="ghost" 
+              className="w-full" 
+              onClick={() => setShowPaymentModal(false)}
+            >
+              Cancel
+            </Button>
+          </motion.div>
         </div>
       )}
 
-      <h3 className="text-lg font-medium text-[#333333]">
-        {currentShow.type === "music" ? "Music Show Requests" : "Talk Show Interactions"}
-      </h3>
-      <p className="text-sm text-[#666666]">Select an option to interact with {currentShow.name}</p>
+      {/* Queue Position Notification */}
+      {queuePosition && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-3 rounded-lg flex items-center gap-2"
+        >
+          <Users size={20} />
+          <span className="font-medium">You're #{queuePosition} in the queue</span>
+        </motion.div>
+      )}
+
+      {/* Call-In Timer (only shows during active call) */}
+      {callInCountdown > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-lg flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <Mic className="animate-pulse" size={20} />
+            <span className="font-semibold">You're LIVE on air!</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock size={20} />
+            <span className="font-mono text-lg">{callInCountdown}s</span>
+          </div>
+        </motion.div>
+      )}
+
+      <div className="space-y-2">
+        <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          {currentShow.type === "music" ? "Music Show Requests" : "Talk Show Interactions"}
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Select an option to interact with {currentShow.name}
+        </p>
+      </div>
 
       {!selectedRequest ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          {requests.map((request) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {requests.map((request, index) => (
             <motion.button
               key={request.id}
-              whileHover={{ scale: 1.02 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                handleRequestClick(request.id)
-                // Only shoutout triggers its own DJ interaction plan
-                if (request.id === 'shoutout') handleDjInteraction()
-              }}
-              className="bg-white rounded-md shadow-sm hover:shadow-md transition-shadow p-4 text-left flex items-start gap-3"
+              onClick={() => handleRequestClick(request.id)}
+              className="relative overflow-hidden bg-white dark:bg-zinc-900 rounded-lg shadow-sm hover:shadow-lg transition-all p-4 text-left group"
             >
-              <div className="p-2 rounded-full bg-[#f5f5f5] text-[#ff5722]">{request.icon}</div>
-              <div>
-                <h4 className="font-medium text-[#333333]">{request.name}</h4>
-                <p className="text-sm text-[#666666]">{request.description}</p>
+              <div className={`absolute inset-0 bg-gradient-to-r ${request.color} opacity-0 group-hover:opacity-10 transition-opacity`} />
+              <div className="relative flex items-start gap-3">
+                <div className={`p-2 rounded-lg bg-gradient-to-r ${request.color} text-white`}>
+                  {request.icon}
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100">{request.name}</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{request.description}</p>
+                </div>
               </div>
             </motion.button>
           ))}
         </div>
       ) : (
-        selectedRequest === "callIn" ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-md shadow-sm p-4"
-          >
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium text-[#333333] mb-2">
-                    {requests.find(r => r.id === selectedRequest)?.name}
-                  </h4>
-                  <Input
-                    placeholder="Your Name"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    className="mb-2"
-                    required
-                  />
-                  <Input
-                    placeholder="Your Location (e.g. Lagos, Nigeria)"
-                    value={userLocation}
-                    onChange={(e) => setUserLocation(e.target.value)}
-                    className="mb-2"
-                    required
-                  />
-                </div>
-                <div className="flex justify-between">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setSelectedRequest(null)}
-                    disabled={isSubmitting}
-                  >
-                    Back
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <span className="mr-2">Submitting...</span>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="h-4 w-4 border-2 border-t-transparent border-white rounded-full"
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <Send className="mr-2 h-4 w-4" /> Submit
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </form>
-          </motion.div>
-        ) : (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-md shadow-sm p-4"
-          >
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium text-[#333333] mb-2">
-                    {requests.find(r => r.id === selectedRequest)?.name}
-                  </h4>
-                  <Input
-                    placeholder="Your Name"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    className="mb-2"
-                    required
-                  />
-                  <Textarea
-                    placeholder="Your message"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    className="min-h-[100px]"
-                    required
-                  />
-                </div>
-                <div className="flex justify-between">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setSelectedRequest(null)}
-                    disabled={isSubmitting}
-                  >
-                    Back
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <span className="mr-2">Submitting...</span>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="h-4 w-4 border-2 border-t-transparent border-white rounded-full"
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <Send className="mr-2 h-4 w-4" /> Submit
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </form>
-          </motion.div>
-        )
-      )}
-      {djInteractionActive && (
-        <div className="text-center p-2 bg-orange-100 rounded text-orange-700 font-semibold mt-4">
-          You have {callInCountdown} seconds to interact with the AI DJ!
-        </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white dark:bg-zinc-900 rounded-lg shadow-lg p-6"
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <h4 className="font-semibold text-lg mb-1 flex items-center gap-2">
+                {requests.find(r => r.id === selectedRequest)?.icon}
+                {requests.find(r => r.id === selectedRequest)?.name}
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                {requests.find(r => r.id === selectedRequest)?.description}
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <Input
+                placeholder="Your Name"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                required
+                className="w-full"
+              />
+              
+              {selectedRequest === "callIn" ? (
+                <Input
+                  placeholder="Your Location (e.g. Lagos, Nigeria)"
+                  value={userLocation}
+                  onChange={(e) => setUserLocation(e.target.value)}
+                  required
+                  className="w-full"
+                />
+              ) : (
+                <Textarea
+                  placeholder={
+                    selectedRequest === "shoutout" 
+                      ? "Your shoutout message..." 
+                      : "Your message..."
+                  }
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="min-h-[120px] w-full resize-none"
+                  required
+                />
+              )}
+            </div>
+            
+            <div className="flex gap-3 pt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setSelectedRequest(null)}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                Back
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                {isSubmitting ? (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="h-4 w-4 border-2 border-t-transparent border-white rounded-full mr-2"
+                    />
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Submit
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </motion.div>
       )}
     </div>
   )

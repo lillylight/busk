@@ -1,6 +1,6 @@
 export type ShowType = "music" | "talk"
 export type HostPersonality = "energetic" | "chill" | "intellectual" | "funny"
-export type VoiceProfile = "echo" | "shimmer" | "sage"
+export type VoiceProfile = "echo" | "shimmer" | "sage" | "nova" | "alloy" | "onyx"
 
 interface GenerateDialogueOptions {
   showType: ShowType

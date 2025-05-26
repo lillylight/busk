@@ -14,23 +14,24 @@ import { WebRTCClient } from "@/lib/webrtc-client"
 import audioService from "@/lib/audio-service"
 
 export function RadioStation() {
-  // Track how many songs have played in this show for DJ commentary
-  const songCountRef = useRef<number>(0)
-  // Track after how many songs the DJ should speak (randomized to 4 or 5 for realism)
-  const songAnnounceThresholdRef = useRef<number>(Math.floor(Math.random() * 2) + 4)
   // Track last show name to detect show changes and trigger DJ intro
   const lastShowNameRef = useRef<string>("")
+  // Track songs played in the last 20 minutes
+  const recentSongsRef = useRef<Array<{title: string, artist: string}>>([])
+  // Track when we last did commentary
+  const lastCommentaryTimeRef = useRef<number>(Date.now())
 
   // (REMOVED DUPLICATE songCountRef BELOW, DO NOT REDECLARE)
 
+  // Initialize with a placeholder that will be immediately updated
   const [currentShow, setCurrentShow] = useState({
-    name: "Morning Vibes with AI Alex",
-    host: "AI Alex",
+    name: "Loading...",
+    host: "Loading...",
     type: "music" as "music" | "talk",
-    description: "Start your day with upbeat tunes and positive energy",
+    description: "Loading show information...",
     isLive: true,
-    voiceProfile: "echo" as "echo" | "shimmer" | "sage", // Default voice profile
-    color: "from-[#ff5722] to-[#ff7043]",
+    voiceProfile: "echo" as "echo" | "shimmer" | "sage" | "nova" | "alloy" | "onyx",
+    color: "from-[#607d8b] to-[#90a4ae]",
   })
 
   const [isPlaying, setIsPlaying] = useState(false)
@@ -38,7 +39,6 @@ export function RadioStation() {
   const [activeTab, setActiveTab] = useState("requests")
   const [hostDialogue, setHostDialogue] = useState("")
   const { toast } = useToast()
-  const webrtcClient = useRef<WebRTCClient | null>(null)
   const audioElementRef = useRef<HTMLAudioElement | null>(null)
   // (REMOVED DUPLICATE songCountRef HERE)
   const [isSongGenerating, setIsSongGenerating] = useState(false)
@@ -48,10 +48,9 @@ export function RadioStation() {
     requestedBy: "",
   })
 
-  // Initialize audio element and WebRTC client
+  // Initialize audio element
   useEffect(() => {
     audioService.initialize()
-    webrtcClient.current = new WebRTCClient()
 
     // Set up audio element for AI voice
     audioElementRef.current = document.createElement("audio")
@@ -60,60 +59,121 @@ export function RadioStation() {
 
     return () => {
       audioService.cleanup()
-      if (webrtcClient.current) {
-        webrtcClient.current.close()
-      }
       if (audioElementRef.current) {
         document.body.removeChild(audioElementRef.current)
       }
     }
   }, [])
 
-  // Listen for metadata updates and trigger DJ only after 4-5 songs
+  // Listen for metadata updates and track songs
   useEffect(() => {
+    let lastSongId = ""
+    
     const handleMetadataUpdate = (metadata: any) => {
+      const currentSongId = `${metadata.title}-${metadata.artist}`
+      
       setSongInfo({
         title: metadata.title || "Unknown Track",
         artist: metadata.artist || "Unknown Artist",
         requestedBy: "",
       })
 
-      // Count songs played in this show
-      songCountRef.current += 1
-      // DJ speaks only after every 4 or 5 songs (randomize for realism, but always between 4-5)
-      if (
-        (songCountRef.current >= songAnnounceThresholdRef.current) &&
-        currentShow.type === "music"
-      ) {
-        generateDJCommentary(metadata)
-        songCountRef.current = 0
-        // Randomize next threshold to 4 or 5
-        songAnnounceThresholdRef.current = Math.floor(Math.random() * 2) + 4
+      // Track unique songs for music shows
+      if (currentShow.type === "music" && currentShow.name !== "Loading...") {
+        if (currentSongId !== lastSongId && metadata.title !== "Unknown Track") {
+          lastSongId = currentSongId
+          
+          // Add to recent songs list
+          recentSongsRef.current.push({
+            title: metadata.title,
+            artist: metadata.artist
+          })
+          
+          // Keep only last 10 songs
+          if (recentSongsRef.current.length > 10) {
+            recentSongsRef.current.shift()
+          }
+          
+          console.log(`New song: "${metadata.title}" by ${metadata.artist}`)
+          
+          // Check if 20 minutes have passed since last commentary
+          const now = Date.now()
+          const timeSinceLastCommentary = now - lastCommentaryTimeRef.current
+          
+          if (timeSinceLastCommentary >= 20 * 60 * 1000) { // 20 minutes
+            generateDJCommentary()
+            lastCommentaryTimeRef.current = now
+          }
+        }
       }
     }
 
     audioService.onMetadataUpdate(handleMetadataUpdate)
-  }, [currentShow.type])
+  }, [currentShow])
 
-  // Generate DJ commentary after 4-5 songs
-  const generateDJCommentary = async (metadata: any) => {
+  // Generate DJ commentary after 20 minutes
+  const generateDJCommentary = async () => {
     try {
-      if (!webrtcClient.current) {
-        webrtcClient.current = new WebRTCClient()
+      // Get current time for schedule context
+      const now = new Date()
+      const currentHour = now.getHours()
+      const timeOfDay = currentHour < 12 ? "morning" : currentHour < 17 ? "afternoon" : currentHour < 21 ? "evening" : "night"
+      
+      // Get recent songs to mention
+      const recentSongs = recentSongsRef.current.slice(-3) // Last 3 songs
+      const songList = recentSongs.map(s => `"${s.title}" by ${s.artist}`).join(", ")
+      
+      // Create contextual commentary based on show type and time
+      let commentaryOptions = []
+      
+      // Special cool DJ vibe for One Eyed Goat
+      if (currentShow.host === "One Eyed Goat") {
+        commentaryOptions = [
+          `Yo, yo, yo! This is the One Eyed Goat keeping you company through the ${timeOfDay}. We've been vibing to some fire tracks including ${songList}. Man, this playlist hits different when the city's quiet, you feel me? Keep it locked to ${currentShow.name}!`,
+          `What's good, night owls? One Eyed Goat here on BUSK Radio. The last 20 minutes have been straight heat with tracks like ${songList}. If you're still up grinding or just chilling, I got you covered all ${timeOfDay} long. Hit me up with those shoutouts!`,
+          `Ayy, this is your boy One Eyed Goat on the late night tip. We've been blessing your speakers with ${songList} and more. That's what I'm talking about! We're keeping it smooth and steady here on ${currentShow.name}. Don't sleep on us, fam!`
+        ]
+      } else {
+        commentaryOptions = [
+          `This is ${currentShow.host} on ${currentShow.name} here at BUSK Radio. Over the past 20 minutes, we've enjoyed some incredible tracks including ${songList}. The production quality has been absolutely stellar. We're keeping the ${timeOfDay} vibes going strong!`,
+          `You're listening to ${currentShow.name} with me, ${currentShow.host}, right here on BUSK Radio. We've had an amazing set featuring ${songList}. Each track perfectly captures the ${timeOfDay} mood. Stay tuned, we've got more great music coming up!`,
+          `${currentShow.host} here on BUSK Radio's ${currentShow.name}. The last 20 minutes have been a musical journey with ${songList} and more. These tracks really capture that ${currentShow.type === "music" ? "musical energy" : "creative spirit"} we love to share with you. Remember, you can always send in your shoutouts and requests!`
+        ]
       }
-
-      await webrtcClient.current.initialize(currentShow.voiceProfile)
-
-      webrtcClient.current.onTrack((event) => {
-        if (audioElementRef.current) {
-          audioElementRef.current.srcObject = event.streams[0]
-        }
-      })
-
-      const message = `You just heard "${metadata.title}" by ${metadata.artist}. Here's an interesting fact about this style of music before we continue with more great tracks.`
-      webrtcClient.current.sendMessage(message)
-
-      setHostDialogue(message)
+      
+      // Pick a random commentary style
+      const djCommentary = commentaryOptions[Math.floor(Math.random() * commentaryOptions.length)]
+      
+      setHostDialogue(djCommentary)
+      
+      // Use TTS for DJ commentary (broadcast to all) - this should take about 30 seconds
+      const response = await fetch('/api/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: djCommentary,
+          voice: currentShow.voiceProfile || 'echo',
+          model: 'tts-1-hd', // Use HD model for better quality
+          speed: 0.95, // Natural speaking pace
+        }),
+      });
+      
+      if (response.ok) {
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.volume = 1.0;
+        
+        // Play the commentary
+        await audio.play();
+        
+        // Clean up after playing
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+        };
+      }
     } catch (error) {
       console.error("Error generating DJ commentary:", error)
     }
@@ -122,8 +182,8 @@ export function RadioStation() {
   // Handle play/pause
   useEffect(() => {
     if (isPlaying) {
-      // Generate welcome message when starting playback
-      if (!hostDialogue) {
+      // Only generate welcome message if we have a real show loaded (not "Loading...")
+      if (!hostDialogue && currentShow.name !== "Loading...") {
         generateWelcomeMessage()
       }
 
@@ -139,50 +199,170 @@ export function RadioStation() {
     } else {
       audioService.pause()
     }
-  }, [isPlaying])
+  }, [isPlaying, currentShow.name])
 
   // Generate welcome message ONLY when a new show starts
   const generateWelcomeMessage = async () => {
     try {
-      if (!webrtcClient.current) {
-        webrtcClient.current = new WebRTCClient()
-      }
-
-      await webrtcClient.current.initialize(currentShow.voiceProfile)
-
-      webrtcClient.current.onTrack((event) => {
-        if (audioElementRef.current) {
-          audioElementRef.current.srcObject = event.streams[0]
-        }
-      })
-
-      const welcomeMessage = `Welcome to BUSK.Radio! You're listening to ${currentShow.name}. I'm your host ${currentShow.host}, and we've got some amazing music lined up for you today. Stay tuned!`
-      webrtcClient.current.sendMessage(welcomeMessage)
-
+      const welcomeMessage = `Welcome to BUSK Radio! You're listening to ${currentShow.name}. I'm your host ${currentShow.host}, and we've got some amazing music lined up for you today. Stay tuned!`
+      
       setHostDialogue(welcomeMessage)
-      // Reset song counter and threshold for new show
-      songCountRef.current = 0
-      songAnnounceThresholdRef.current = Math.floor(Math.random() * 2) + 4
+      
+      // Use TTS for welcome message (same as DJ commentary)
+      const response = await fetch('/api/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: welcomeMessage,
+          voice: currentShow.voiceProfile || 'echo',
+          model: 'tts-1-hd',
+          speed: 0.95,
+        }),
+      });
+      
+      if (response.ok) {
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.volume = 1.0;
+        
+        // Play the welcome message
+        await audio.play();
+        
+        // Clean up after playing
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+        };
+      }
+      
+      // Reset commentary timer for new show
+      lastCommentaryTimeRef.current = Date.now()
+      recentSongsRef.current = []
     } catch (error) {
       console.error("Error generating welcome message:", error)
-
-      // Fallback to text-based dialogue
-      const welcome = await generateHostDialogue({
-        showType: currentShow.type,
-        hostName: currentShow.host.split("&")[0].trim(),
-        personality: "energetic",
-        voiceProfile: currentShow.voiceProfile,
-        context: `Current show: ${currentShow.name}. This is a welcome message for a new listener.`,
-      })
-
-      if (welcome && welcome.trim().length > 0) {
-        setHostDialogue(welcome)
-      }
-      // Reset song counter and threshold for new show
-      songCountRef.current = 0
-      songAnnounceThresholdRef.current = Math.floor(Math.random() * 2) + 4
+      // Reset commentary timer for new show even on error
+      lastCommentaryTimeRef.current = Date.now()
+      recentSongsRef.current = []
     }
   }
+
+  // Update show based on current time - moved outside to be accessible
+  const updateShowBasedOnTime = () => {
+    const now = new Date()
+    const currentHour = now.getHours()
+    const currentMinute = now.getMinutes()
+    const currentTimeInMinutes = currentHour * 60 + currentMinute
+
+    // Define all shows with their time slots
+    const shows = [
+      {
+        name: "Morning Vibes with AI Alex",
+        host: "AI Alex",
+        type: "music" as "music" | "talk",
+        description: "Start your day with upbeat tunes and positive energy",
+        isLive: true,
+        voiceProfile: "nova" as "echo" | "shimmer" | "sage" | "nova" | "alloy" | "onyx",
+        color: "from-[#ff5722] to-[#ff7043]",
+        startTime: 6 * 60, // 06:00
+        endTime: 9 * 60, // 09:00
+      },
+      {
+        name: "Tech Talk with Neural Nancy",
+        host: "Neural Nancy & Tech Tim",
+        type: "talk" as "music" | "talk",
+        description: "Discussing the latest in technology and AI advancements",
+        isLive: true,
+        voiceProfile: "shimmer" as "echo" | "shimmer" | "sage" | "nova" | "alloy" | "onyx",
+        color: "from-[#2196f3] to-[#42a5f5]",
+        startTime: 9 * 60, // 09:00
+        endTime: 11 * 60, // 11:00
+      },
+      {
+        name: "Midday Mix with Digital Dave",
+        host: "Digital Dave",
+        type: "music" as "music" | "talk",
+        description: "A blend of contemporary hits and classic favorites",
+        isLive: true,
+        voiceProfile: "alloy" as "echo" | "shimmer" | "sage" | "nova" | "alloy" | "onyx",
+        color: "from-[#ff9800] to-[#ffb74d]",
+        startTime: 11 * 60, // 11:00
+        endTime: 14 * 60, // 14:00
+      },
+      {
+        name: "Science Hour with Synthetic Sam",
+        host: "Synthetic Sam & Dr. Data",
+        type: "talk" as "music" | "talk",
+        description: "Exploring fascinating scientific discoveries with expert guests",
+        isLive: true,
+        voiceProfile: "onyx" as "echo" | "shimmer" | "sage" | "nova" | "alloy" | "onyx",
+        color: "from-[#4caf50] to-[#66bb6a]",
+        startTime: 14 * 60, // 14:00
+        endTime: 16 * 60, // 16:00
+      },
+      {
+        name: "Evening Groove with Virtual Vicky",
+        host: "Virtual Vicky",
+        type: "music" as "music" | "talk",
+        description: "Smooth transitions into your evening with relaxing beats",
+        isLive: true,
+        voiceProfile: "nova" as "echo" | "shimmer" | "sage" | "nova" | "alloy" | "onyx",
+        color: "from-[#9c27b0] to-[#ba68c8]",
+        startTime: 16 * 60, // 16:00
+        endTime: 19 * 60, // 19:00
+      },
+      {
+        name: "Night Owl with Algorithmic Andy",
+        host: "Algorithmic Andy",
+        type: "music" as "music" | "talk",
+        description: "Late night vibes and chill electronic music",
+        isLive: true,
+        voiceProfile: "echo" as "echo" | "shimmer" | "sage" | "nova" | "alloy" | "onyx",
+        color: "from-[#3f51b5] to-[#7986cb]",
+        startTime: 19 * 60, // 19:00
+        endTime: 22 * 60, // 22:00
+      },
+      {
+        name: "Overnight Automation",
+        host: "One Eyed Goat",
+        type: "music" as "music" | "talk",
+        description: "AI-curated playlist to keep you company through the night",
+        isLive: true,
+        voiceProfile: "onyx" as "echo" | "shimmer" | "sage" | "nova" | "alloy" | "onyx", // Onyx is a deep male voice
+        color: "from-[#607d8b] to-[#90a4ae]",
+        startTime: 22 * 60, // 22:00
+        endTime: 6 * 60, // 06:00 (next day)
+      },
+    ]
+
+    // Find the current show based on time
+    let currentShowBasedOnTime = shows[shows.length - 1] // Default to overnight show
+
+    for (const show of shows) {
+      if (show.startTime <= show.endTime) {
+        // Regular time slot (e.g., 9:00-11:00)
+        if (currentTimeInMinutes >= show.startTime && currentTimeInMinutes < show.endTime) {
+          currentShowBasedOnTime = show
+          break
+        }
+      } else {
+        // Overnight time slot (e.g., 22:00-06:00)
+        if (currentTimeInMinutes >= show.startTime || currentTimeInMinutes < show.endTime) {
+          currentShowBasedOnTime = show
+          break
+        }
+      }
+    }
+
+    // Update the show
+    setCurrentShow(currentShowBasedOnTime)
+  }
+
+  // Initialize show based on current time immediately
+  useEffect(() => {
+    updateShowBasedOnTime()
+  }, [])
 
   useEffect(() => {
     // Simulate fluctuating listener count
@@ -190,135 +370,11 @@ export function RadioStation() {
       setListeners((prev) => Math.max(100, prev + Math.floor(Math.random() * 11) - 5))
     }, 5000)
 
-    // Update show based on current time
-    const updateShowBasedOnTime = () => {
-      const now = new Date()
-      const currentHour = now.getHours()
-      const currentMinute = now.getMinutes()
-      const currentTimeInMinutes = currentHour * 60 + currentMinute
-
-      // Define all shows with their time slots
-      const shows = [
-        {
-          name: "Morning Vibes with AI Alex",
-          host: "AI Alex",
-          type: "music" as "music" | "talk",
-          description: "Start your day with upbeat tunes and positive energy",
-          isLive: true,
-          voiceProfile: "echo" as "echo" | "shimmer" | "sage",
-          color: "from-[#ff5722] to-[#ff7043]",
-          startTime: 6 * 60, // 06:00
-          endTime: 9 * 60, // 09:00
-        },
-        {
-          name: "Tech Talk with Neural Nancy",
-          host: "Neural Nancy & Tech Tim",
-          type: "talk" as "music" | "talk",
-          description: "Discussing the latest in technology and AI advancements",
-          isLive: true,
-          voiceProfile: "shimmer" as "echo" | "shimmer" | "sage",
-          color: "from-[#2196f3] to-[#42a5f5]",
-          startTime: 9 * 60, // 09:00
-          endTime: 11 * 60, // 11:00
-        },
-        {
-          name: "Midday Mix with Digital Dave",
-          host: "Digital Dave",
-          type: "music" as "music" | "talk",
-          description: "A blend of contemporary hits and classic favorites",
-          isLive: true,
-          voiceProfile: "echo" as "echo" | "shimmer" | "sage",
-          color: "from-[#ff9800] to-[#ffb74d]",
-          startTime: 11 * 60, // 11:00
-          endTime: 14 * 60, // 14:00
-        },
-        {
-          name: "Science Hour with Synthetic Sam",
-          host: "Synthetic Sam & Dr. Data",
-          type: "talk" as "music" | "talk",
-          description: "Exploring fascinating scientific discoveries with expert guests",
-          isLive: true,
-          voiceProfile: "sage" as "echo" | "shimmer" | "sage",
-          color: "from-[#4caf50] to-[#66bb6a]",
-          startTime: 14 * 60, // 14:00
-          endTime: 16 * 60, // 16:00
-        },
-        {
-          name: "Evening Groove with Virtual Vicky",
-          host: "Virtual Vicky",
-          type: "music" as "music" | "talk",
-          description: "Smooth transitions into your evening with relaxing beats",
-          isLive: true,
-          voiceProfile: "shimmer" as "echo" | "shimmer" | "sage",
-          color: "from-[#9c27b0] to-[#ba68c8]",
-          startTime: 16 * 60, // 16:00
-          endTime: 19 * 60, // 19:00
-        },
-        {
-          name: "Night Owl with Algorithmic Andy",
-          host: "Algorithmic Andy",
-          type: "music" as "music" | "talk",
-          description: "Late night vibes and chill electronic music",
-          isLive: true,
-          voiceProfile: "echo" as "echo" | "shimmer" | "sage",
-          color: "from-[#3f51b5] to-[#7986cb]",
-          startTime: 19 * 60, // 19:00
-          endTime: 22 * 60, // 22:00
-        },
-        {
-          name: "Overnight Automation",
-          host: "AI DJ",
-          type: "music" as "music" | "talk",
-          description: "AI-curated playlist to keep you company through the night",
-          isLive: true,
-          voiceProfile: "echo" as "echo" | "shimmer" | "sage",
-          color: "from-[#607d8b] to-[#90a4ae]",
-          startTime: 22 * 60, // 22:00
-          endTime: 6 * 60, // 06:00 (next day)
-        },
-      ]
-
-      // Find the current show based on time
-      let currentShowBasedOnTime = shows[shows.length - 1] // Default to overnight show
-
-      for (const show of shows) {
-        if (show.startTime <= show.endTime) {
-          // Regular time slot (e.g., 9:00-11:00)
-          if (currentTimeInMinutes >= show.startTime && currentTimeInMinutes < show.endTime) {
-            currentShowBasedOnTime = show
-            break
-          }
-        } else {
-          // Overnight time slot (e.g., 22:00-06:00)
-          if (currentTimeInMinutes >= show.startTime || currentTimeInMinutes < show.endTime) {
-            currentShowBasedOnTime = show
-            break
-          }
-        }
-      }
-
-      // Only update if it's a different show
-      if (currentShowBasedOnTime.name !== currentShow.name) {
-        setCurrentShow(currentShowBasedOnTime)
-
-        if (isPlaying) {
-          toast({
-            title: "Show Changed",
-            description: `Now playing: ${currentShowBasedOnTime.name}`,
-            duration: 5000,
-          })
-        }
-      }
-    }
-
-    // Initial update based on current time
-    updateShowBasedOnTime()
-
     // Update show every minute to check for schedule changes
     const showInterval = setInterval(updateShowBasedOnTime, 60000) // Check every minute
 
     // On show change, trigger DJ intro ONLY if new show
-    if (currentShow.name !== lastShowNameRef.current) {
+    if (currentShow.name !== lastShowNameRef.current && currentShow.name !== "Loading...") {
       if (isPlaying) {
         generateWelcomeMessage()
       }
@@ -334,44 +390,49 @@ export function RadioStation() {
   // Generate host dialogue periodically
 
   // Add a function to handle request success
-  const handleRequestSuccess = async (requestType: string, message: string, userName: string, bypassCode?: string) => {
-    // Only allow DJ to speak for paid shoutouts
-    if (requestType !== "shoutout") {
-      toast({
-        title: "Request Processed",
-        description: "Your request has been processed successfully!",
-        duration: 5000,
-      })
-      return
-    }
-
+  const handleRequestSuccess = async (requestType: string, message: string, userName: string, userLocation?: string) => {
     try {
-      if (!webrtcClient.current) {
-        webrtcClient.current = new WebRTCClient()
+      // Import WebRTCSession
+      const { WebRTCSession } = await import('@/lib/webrtc-session')
+      const session = new WebRTCSession()
+
+      if (requestType === "callIn" && userLocation) {
+        // Handle call-in with real-time interaction
+        // Parse duration from message (if provided)
+        const duration = message ? parseInt(message) : 30
+        await session.startCallIn(userName, userLocation, currentShow.voiceProfile, currentShow.name, duration)
+        
+        toast({
+          title: "Call Connected",
+          description: "You're now live on air!",
+          duration: 3000,
+        })
+      } else if (requestType === "shoutout") {
+        // Handle shoutout with TTS
+        await session.triggerResponse(message, true, false, userName)
+        
+        toast({
+          title: "Shoutout Queued",
+          description: "Your shoutout will be read on air shortly!",
+          duration: 5000,
+        })
+      } else {
+        // Handle other request types
+        const responseMessage = `Request from ${userName}: ${message}`
+        await session.triggerResponse(responseMessage, false, false, userName)
+        
+        toast({
+          title: "Request Submitted",
+          description: "Your request has been processed!",
+          duration: 5000,
+        })
       }
-
-      await webrtcClient.current.initialize(currentShow.voiceProfile)
-
-      webrtcClient.current.onTrack((event) => {
-        if (audioElementRef.current) {
-          audioElementRef.current.srcObject = event.streams[0]
-        }
-      })
-
-      const aiMessage = `Big shoutout to ${userName}! They say: "${message}". Thanks for tuning in and being part of our BUSK.Radio community!`
-      webrtcClient.current.sendMessage(aiMessage)
-      setHostDialogue(aiMessage)
-
-      toast({
-        title: "Shoutout Processed",
-        description: "Your paid shoutout has been broadcast!",
-        duration: 5000,
-      })
     } catch (error) {
-      console.error("Error processing shoutout:", error)
+      console.error("Error processing request:", error)
       toast({
-        title: "Shoutout Error",
-        description: "There was an error broadcasting your shoutout.",
+        title: "Request Error",
+        description: "There was an error processing your request.",
+        variant: "destructive",
         duration: 5000,
       })
     }

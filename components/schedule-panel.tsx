@@ -50,12 +50,23 @@ export function SchedulePanel() {
   }
   
   // Create the schedule with isNow property calculated based on current time
-  const todaySchedule = todayScheduleData.map(show => ({
+  let todaySchedule = todayScheduleData.map(show => ({
     time: `${show.timeStart} - ${show.timeEnd}`,
     name: show.name,
     type: show.type,
     isNow: isShowPlaying(show.timeStart, show.timeEnd)
   }))
+  
+  // Move current show to the top
+  const currentShowIndex = todaySchedule.findIndex(show => show.isNow)
+  if (currentShowIndex > 0) {
+    const currentShow = todaySchedule[currentShowIndex]
+    todaySchedule = [
+      currentShow,
+      ...todaySchedule.slice(0, currentShowIndex),
+      ...todaySchedule.slice(currentShowIndex + 1)
+    ]
+  }
 
   const weekSchedule = [
     { day: "Monday", shows: ["Morning Vibes", "Tech Talk", "Midday Mix", "Science Hour", "Evening Groove"] },
