@@ -259,7 +259,7 @@ export class WebRTCClient {
       this.dataChannel.onopen = () => {
         console.log('Data channel opened');
         // Send initial session instructions
-        if (this.dataChannel) {
+        if (this.dataChannel && this.dataChannel.readyState === 'open') {
           const sessionMessage = JSON.stringify({
             type: "session.update",
             session: this.sessionConfig,

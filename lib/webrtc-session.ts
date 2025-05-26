@@ -241,44 +241,80 @@ export class WebRTCSession {
     this.sessionConfig.model = 'gpt-4o-mini-realtime-preview';
     this.callInActive = true;
     
-    // First announce the caller to all listeners
-    const announcementMessage = `Hold up, hold up! We've got a caller on the line. It's ${userName} calling in from ${userLocation}. Let's see what's on their mind!`;
+    // First announce the caller to all listeners with context about the current show
+    let announcementMessage = '';
+    if (hostName === "One Eyed Goat") {
+      announcementMessage = `Yo, yo, yo! We got ${userName} on the line from ${userLocation}! What's good, fam? You're live on ${showName || 'BUSK Radio'}!`;
+    } else {
+      announcementMessage = `We have a caller! It's ${userName} from ${userLocation} joining us on ${showName || 'BUSK Radio'}. Welcome to the show!`;
+    }
     await this.convertResponseToSpeech(announcementMessage);
     
     // Now initialize WebRTC for real-time conversation
     await this.client.initialize(voice);
     await this.connect();
     
-    // Greet the caller directly
-    const greetingMessage = `Hey ${userName}, you're live on BUSK Radio! How's it going over there in ${userLocation}?`;
+    // Greet the caller directly with context about the show
+    let greetingMessage = '';
+    if (hostName === "One Eyed Goat") {
+      greetingMessage = `Hey ${userName}, you're live on the air! What's happening over there in ${userLocation}? You listening to the late night vibes? What tracks you feeling tonight?`;
+    } else if (showName?.includes("Tech Talk")) {
+      greetingMessage = `Hey ${userName}, welcome to ${showName}! What tech topics are on your mind today? Any cool gadgets or AI developments you want to discuss?`;
+    } else if (showName?.includes("Science Hour")) {
+      greetingMessage = `Hello ${userName}, great to have you on ${showName}! What scientific discoveries or questions have caught your attention lately?`;
+    } else {
+      greetingMessage = `Hey ${userName}, you're live on ${showName || 'BUSK Radio'}! How's it going over there in ${userLocation}? What's on your mind today?`;
+    }
     
-    // Send greeting through WebRTC for real-time interaction
-    const messagePayload = JSON.stringify({
-      type: 'conversation.item.create',
-      item: {
-        type: 'message',
-        role: 'assistant',
-        content: [{ type: 'input_text', text: greetingMessage }]
+    // Send greeting through WebRTC for real-time interaction using response.create
+    const greetingPayload = JSON.stringify({
+      type: 'response.create',
+      response: {
+        modalities: ['text', 'audio'],
+        instructions: 'Say this greeting warmly and enthusiastically, then wait for the caller to respond.',
+        input: [
+          {
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'input_text', text: greetingMessage }]
+          }
+        ]
       }
     });
-    this.client.sendMessage(messagePayload);
+    this.client.sendMessage(greetingPayload);
     
     // Set up wrap-up timer (6 seconds before end)
     const wrapUpTime = (duration - 6) * 1000;
     setTimeout(async () => {
       if (this.callInActive) {
-        const wrapUpMessage = `Alright ${userName}, we're about to wrap up here. Thanks so much for calling in to BUSK Radio! Take care and keep listening!`;
+        let wrapUpMessage = '';
+        if (hostName === "One Eyed Goat") {
+          wrapUpMessage = `Yo ${userName}, we gotta wrap this up, fam. Thanks for keeping it real with us tonight! Keep vibing to BUSK Radio, peace out!`;
+        } else {
+          wrapUpMessage = `Alright ${userName}, we're about to wrap up here. Thanks so much for calling in to ${showName || 'BUSK Radio'}! Take care and keep listening!`;
+        }
         
-        // Send wrap-up through WebRTC
+        // Send wrap-up through WebRTC with response.create to ensure it's spoken
         const wrapUpPayload = JSON.stringify({
-          type: 'conversation.item.create',
-          item: {
-            type: 'message',
-            role: 'assistant',
-            content: [{ type: 'input_text', text: wrapUpMessage }]
+          type: 'response.create',
+          response: {
+            modalities: ['text', 'audio'],
+            instructions: 'Say this message exactly as written, with a warm and friendly tone. This is the goodbye message.',
+            input: [
+              {
+                type: 'message',
+                role: 'assistant',
+                content: [{ type: 'input_text', text: wrapUpMessage }]
+              }
+            ]
           }
         });
         this.client.sendMessage(wrapUpPayload);
+        
+        // End the call after the wrap-up message
+        setTimeout(() => {
+          this.endCallIn();
+        }, 5000); // Give 5 seconds for the wrap-up message to play
       }
     }, wrapUpTime);
     
