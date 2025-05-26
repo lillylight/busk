@@ -21,9 +21,15 @@ export interface QueuedRequest {
   status: 'pending' | 'processing' | 'completed'
 }
 
-// Helper: Get DJ instructions for chill Nigerian radio DJ
-function getDJInstructions(userName: string, userLocation: string, showName?: string) {
-  return `You are a chill, upbeat radio DJ from Nigeria, hosting BUSK Radio${showName ? `, currently presenting '${showName}'` : ''}. Welcome the caller warmly, greet them by name and location, and keep your tone friendly, relaxed, and cool. Use Nigerian English expressions and radio flair. Start with: 'Welcome to BUSK Radio, ${userName} from ${userLocation}! You're now live on ${showName ? showName : 'the show'}.'`;
+// Helper: Get DJ instructions based on the show
+function getDJInstructions(userName: string, userLocation: string, showName?: string, hostName?: string) {
+  // Special instructions for One Eyed Goat
+  if (hostName === "One Eyed Goat") {
+    return `You are One Eyed Goat, the coolest late-night DJ on BUSK Radio. You have a laid-back, street-smart vibe with a deep voice. Use slang like "yo", "what's good", "fam", "that's dope", etc. Keep it real and conversational. The caller ${userName} from ${userLocation} is now live on air. Chat with them naturally, ask about their night, what they're up to, their favorite music, etc. Keep the energy chill but engaging.`;
+  }
+  
+  // Default instructions for other DJs
+  return `You are a friendly, upbeat radio DJ hosting BUSK Radio${showName ? `, currently presenting '${showName}'` : ''}. Welcome the caller warmly, greet them by name and location, and keep your tone friendly and professional. The caller ${userName} from ${userLocation} is now live on air. Have a natural conversation with them.`;
 }
 
 export class WebRTCSession {
@@ -109,9 +115,12 @@ export class WebRTCSession {
 
       try {
         if (request.type === 'callIn') {
-          // Parse duration from message if available
-          const duration = request.message ? parseInt(request.message) : 30
-          await this.handleCallIn(request.userName, request.userLocation || '', this.sessionConfig.voice, undefined, duration)
+          // Parse duration and host info from message if available
+          const parts = request.message?.split('|') || []
+          const duration = parts[0] ? parseInt(parts[0]) : 30
+          const showName = parts[1]
+          const hostName = parts[2]
+          await this.handleCallIn(request.userName, request.userLocation || '', this.sessionConfig.voice, showName, duration, hostName)
         } else if (request.type === 'shoutout') {
           await this.handleShoutout(request.userName, request.message || '')
         } else {
@@ -226,25 +235,50 @@ export class WebRTCSession {
   /**
    * Handle call-in requests with real-time interaction
    */
-  private async handleCallIn(userName: string, userLocation: string, voice: string, showName?: string, duration: number = 30): Promise<void> {
+  private async handleCallIn(userName: string, userLocation: string, voice: string, showName?: string, duration: number = 30, hostName?: string): Promise<void> {
     this.sessionConfig.voice = voice;
-    this.sessionConfig.instructions = getDJInstructions(userName, userLocation, showName);
+    this.sessionConfig.instructions = getDJInstructions(userName, userLocation, showName, hostName);
     this.sessionConfig.model = 'gpt-4o-mini-realtime-preview';
     this.callInActive = true;
     
+    // First announce the caller to all listeners
+    const announcementMessage = `Hold up, hold up! We've got a caller on the line. It's ${userName} calling in from ${userLocation}. Let's see what's on their mind!`;
+    await this.convertResponseToSpeech(announcementMessage);
+    
+    // Now initialize WebRTC for real-time conversation
     await this.client.initialize(voice);
     await this.connect();
     
-    // Play the quick DJ intro
-    const introMessage = `Hey ${userName} from ${userLocation}, welcome to BUSK Radio! You're live on air. What's on your mind today?`;
-    await this.convertResponseToSpeech(introMessage);
+    // Greet the caller directly
+    const greetingMessage = `Hey ${userName}, you're live on BUSK Radio! How's it going over there in ${userLocation}?`;
+    
+    // Send greeting through WebRTC for real-time interaction
+    const messagePayload = JSON.stringify({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'input_text', text: greetingMessage }]
+      }
+    });
+    this.client.sendMessage(messagePayload);
     
     // Set up wrap-up timer (6 seconds before end)
     const wrapUpTime = (duration - 6) * 1000;
     setTimeout(async () => {
       if (this.callInActive) {
-        const wrapUpMessage = `Alright ${userName}, we're about to wrap up. Thanks so much for calling in to BUSK Radio! Take care!`;
-        await this.convertResponseToSpeech(wrapUpMessage);
+        const wrapUpMessage = `Alright ${userName}, we're about to wrap up here. Thanks so much for calling in to BUSK Radio! Take care and keep listening!`;
+        
+        // Send wrap-up through WebRTC
+        const wrapUpPayload = JSON.stringify({
+          type: 'conversation.item.create',
+          item: {
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'input_text', text: wrapUpMessage }]
+          }
+        });
+        this.client.sendMessage(wrapUpPayload);
       }
     }, wrapUpTime);
     
@@ -257,12 +291,12 @@ export class WebRTCSession {
   /**
    * Start a call-in session (legacy method for compatibility)
    */
-  async startCallIn(userName: string, userLocation: string, voice: string, showName?: string, duration: number = 30) {
+  async startCallIn(userName: string, userLocation: string, voice: string, showName?: string, duration: number = 30, hostName?: string) {
     const requestId = this.addToQueue({
       type: 'callIn',
       userName,
       userLocation,
-      message: duration.toString()
+      message: `${duration}|${showName || ''}|${hostName || ''}`
     });
     
     return requestId;

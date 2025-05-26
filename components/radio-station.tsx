@@ -400,7 +400,7 @@ export function RadioStation() {
         // Handle call-in with real-time interaction
         // Parse duration from message (if provided)
         const duration = message ? parseInt(message) : 30
-        await session.startCallIn(userName, userLocation, currentShow.voiceProfile, currentShow.name, duration)
+        await session.startCallIn(userName, userLocation, currentShow.voiceProfile, currentShow.name, duration, currentShow.host)
         
         toast({
           title: "Call Connected",
