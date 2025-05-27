@@ -11,11 +11,12 @@ const ADMIN_ENS = 'aiancestry.base.eth'
 export default function Home() {
   const { address } = useAccount()
   
-  // Check if current user is admin (simplified check for demo)
-  const isAdmin = address && (
-    address.toLowerCase() === ADMIN_ENS.toLowerCase() ||
-    address.toLowerCase().includes('aiancestry') // Fallback for testing
-  )
+  // TEMPORARY: Show admin button for any connected wallet
+  // TODO: Replace with proper wallet check
+  const isAdmin = !!address // Show for any connected wallet
+  
+  // Uncomment and update when ready to restrict:
+  // const isAdmin = address && address.toLowerCase() === '0xYOUR_WALLET_ADDRESS'.toLowerCase()
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-[#333333]">

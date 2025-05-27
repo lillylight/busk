@@ -61,12 +61,15 @@ export default function AdminDashboard() {
       }
 
       try {
-        // For now, we'll do a simple address check
-        // In production, this should verify against ENS
-        const isAdmin = address.toLowerCase() === ADMIN_ENS.toLowerCase() || 
-                       address.toLowerCase() === '0x' + ADMIN_ENS.toLowerCase() // Fallback for testing
+        // TEMPORARY: Allow any connected wallet for testing
+        // TODO: Replace this with proper ENS resolution or hardcode your wallet address
+        const isAdmin = true; // Temporarily allow all wallets
+        
+        // Uncomment and update this when ready to restrict access:
+        // const isAdmin = address.toLowerCase() === '0xYOUR_WALLET_ADDRESS_HERE'.toLowerCase()
         
         if (!isAdmin) {
+          console.log('Not admin. Connected address:', address)
           toast({
             title: 'Unauthorized',
             description: 'This dashboard is restricted to admin only.',
