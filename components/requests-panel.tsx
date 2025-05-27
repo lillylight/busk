@@ -237,13 +237,11 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                 { amount: 10, label: "Pizza", emoji: "🍕" },
                 { amount: 25, label: "Concert Ticket", emoji: "🎫" },
               ].map((option) => (
-                <div key={option.amount} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{option.emoji}</span>
-                    <div>
-                      <p className="font-medium">{option.label}</p>
-                      <p className="text-sm text-[#666666]">${option.amount}</p>
-                    </div>
+                <div key={option.amount} className="flex items-center gap-3 p-3 border border-[#e0e0e0] rounded-lg">
+                  <span className="text-2xl">{option.emoji}</span>
+                  <div className="flex-1">
+                    <p className="font-medium text-[#333333]">{option.label}</p>
+                    <p className="text-sm text-[#666666]">${option.amount}</p>
                   </div>
                   <OnchainCheckout
                     amount={option.amount}
@@ -257,7 +255,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                         duration: 5000,
                       })
                     }}
-                    className="px-4 py-2"
+                    className="px-8 py-2 min-w-[120px]"
                   />
                 </div>
               ))}
@@ -291,18 +289,16 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                 { duration: 60, price: 4, label: "1 minute" },
                 { duration: 90, price: 6, label: "1.5 minutes" },
               ].map((option) => (
-                <div key={option.duration} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <p className="font-medium">{option.label}</p>
-                      <p className="text-sm text-[#666666]">${option.price}</p>
-                    </div>
-                    {option.duration === 60 && (
-                      <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                        Popular
-                      </Badge>
-                    )}
+                <div key={option.duration} className="flex items-center gap-3 p-3 border border-[#e0e0e0] rounded-lg">
+                  <div className="flex-1">
+                    <p className="font-medium text-[#333333]">{option.label}</p>
+                    <p className="text-sm text-[#666666]">${option.price}</p>
                   </div>
+                  {option.duration === 60 && (
+                    <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white mr-3">
+                      Popular
+                    </Badge>
+                  )}
                   <OnchainCheckout
                     amount={option.price}
                     description={`Call-in with DJ - ${option.label}`}
@@ -311,7 +307,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                       setShowPaymentModal(false)
                       handlePayment(option.duration)
                     }}
-                    className="px-4 py-2"
+                    className="px-8 py-2 min-w-[120px]"
                   />
                 </div>
               ))}
