@@ -35,11 +35,9 @@ export function ShowSchedule({ currentShow }: ShowScheduleProps) {
     
     // Handle overnight shows (e.g., 22:00 - 06:00)
     if (endTimeInMinutes < startTimeInMinutes) {
-      endTimeInMinutes += 24 * 60 // Add 24 hours
-      
       // For overnight shows, check if current time is after start time or before end time
       return currentTimeInMinutes >= startTimeInMinutes || 
-             currentTimeInMinutes < endTimeInMinutes
+             currentTimeInMinutes < (endHour * 60 + endMinute)
     }
     
     // For regular shows, check if current time is between start and end

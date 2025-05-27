@@ -203,7 +203,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
     
     toast({
       title: "Payment Successful",
-      description: `You have ${duration} seconds to interact with the DJ!`,
+      description: `You have ${duration} secs to interact with the DJ!`,
       duration: 3500,
     })
     
@@ -254,6 +254,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                         duration: 5000,
                       })
                     }}
+                    className="px-4 py-1.5 text-sm"
                   />
                 </div>
               ))}
@@ -283,9 +284,9 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
             </p>
             <div className="space-y-3 mb-4">
               {[
-                { duration: 30, price: 2, label: "30 seconds" },
-                { duration: 60, price: 4, label: "1 minute" },
-                { duration: 90, price: 6, label: "1.5 minutes" },
+                { duration: 30, price: 2, label: "30 secs" },
+                { duration: 60, price: 4, label: "1 min" },
+                { duration: 90, price: 6, label: "1.5 mins" },
               ].map((option) => (
                 <div key={option.duration} className="flex items-center gap-3 p-3 border border-[#e0e0e0] rounded-lg">
                   <div className="flex-1">
@@ -304,6 +305,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                       setShowPaymentModal(false)
                       handlePayment(option.duration)
                     }}
+                    className="px-4 py-1.5 text-sm"
                   />
                 </div>
               ))}
@@ -360,26 +362,44 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
       </div>
 
       {!selectedRequest ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {requests.map((request, index) => (
             <motion.button
               key={request.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              whileHover={{ scale: 1.02, y: -2 }}
+              whileHover={{ 
+                backgroundColor: request.id === "tipJar" ? "#fff5f5" : "#fafafa",
+                borderColor: request.id === "tipJar" ? "#ffdddd" : "#e5e5e5"
+              }}
               whileTap={{ scale: 0.98 }}
               onClick={() => handleRequestClick(request.id)}
-              className="relative overflow-hidden bg-white rounded-lg border border-[#e0e0e0] hover:border-[#ff5722] shadow-sm hover:shadow-md transition-all p-4 text-left group"
+              className={`relative overflow-hidden rounded-2xl border transition-all p-5 text-left ${
+                request.id === "tipJar" 
+                  ? "bg-[#fff5f5] border-[#ffdddd]" 
+                  : "bg-[#fafafa] border-[#f0f0f0]"
+              }`}
             >
-              <div className={`absolute inset-0 bg-gradient-to-r ${request.color} opacity-0 group-hover:opacity-10 transition-opacity`} />
-              <div className="relative flex items-start gap-3">
-                <div className={`p-2 rounded-lg bg-gradient-to-r ${request.color} text-white`}>
-                  {request.icon}
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-2xl flex-shrink-0 ${
+                  request.id === "shoutout" ? "bg-[#e879f9]" :
+                  request.id === "dedication" ? "bg-[#3b82f6]" :
+                  request.id === "request" ? "bg-[#10b981]" :
+                  request.id === "callIn" ? "bg-[#f97316]" :
+                  request.id === "tipJar" ? "bg-[#ec4899]" :
+                  request.id === "question" ? "bg-[#e879f9]" :
+                  request.id === "topic" ? "bg-[#3b82f6]" :
+                  request.id === "debate" ? "bg-[#10b981]" :
+                  "bg-gray-500"
+                }`}>
+                  <div className="text-white">
+                    {request.icon}
+                  </div>
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-[#333333]">{request.name}</h4>
-                  <p className="text-sm text-[#666666] mt-1">{request.description}</p>
+                  <h4 className="font-semibold text-[#1a1a1a] text-base">{request.name}</h4>
+                  <p className="text-sm text-[#999999] mt-0.5">{request.description}</p>
                 </div>
               </div>
             </motion.button>

@@ -1,0 +1,25 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "functions": {
+    "app/api/text-to-speech/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/generate-dialogue/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/generate-song/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/webrtc-connect/route.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
