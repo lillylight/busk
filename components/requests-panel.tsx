@@ -241,7 +241,6 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                   <span className="text-2xl">{option.emoji}</span>
                   <div className="flex-1">
                     <p className="font-medium text-[#333333]">{option.label}</p>
-                    <p className="text-sm text-[#666666]">${option.amount}</p>
                   </div>
                   <OnchainCheckout
                     amount={option.amount}
@@ -255,7 +254,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                         duration: 5000,
                       })
                     }}
-                    className="px-8 py-2 min-w-[120px]"
+                    className="px-6 py-2"
                   />
                 </div>
               ))}
@@ -292,7 +291,6 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                 <div key={option.duration} className="flex items-center gap-3 p-3 border border-[#e0e0e0] rounded-lg">
                   <div className="flex-1">
                     <p className="font-medium text-[#333333]">{option.label}</p>
-                    <p className="text-sm text-[#666666]">${option.price}</p>
                   </div>
                   {option.duration === 60 && (
                     <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white mr-3">
@@ -307,7 +305,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                       setShowPaymentModal(false)
                       handlePayment(option.duration)
                     }}
-                    className="px-8 py-2 min-w-[120px]"
+                    className="px-6 py-2"
                   />
                 </div>
               ))}
