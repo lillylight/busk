@@ -82,7 +82,7 @@ export function OnchainCheckout({
       onStatus={handleStatus}
     >
       <CheckoutButton 
-        className={`bg-[#ff5722] hover:bg-[#f4511e] text-white ${className}`}
+        className="bg-[#ff5722] hover:bg-[#f4511e] text-white px-4 py-1.5 text-sm"
         text={buttonText}
       />
       <CheckoutStatus />

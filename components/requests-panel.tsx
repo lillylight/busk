@@ -254,7 +254,6 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                         duration: 5000,
                       })
                     }}
-                    className="px-6 py-2"
                   />
                 </div>
               ))}
@@ -305,7 +304,6 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                       setShowPaymentModal(false)
                       handlePayment(option.duration)
                     }}
-                    className="px-6 py-2"
                   />
                 </div>
               ))}
