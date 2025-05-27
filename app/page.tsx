@@ -2,14 +2,38 @@
 
 import { RadioStation } from "@/components/radio-station"
 import { WalletConnect } from "@/components/wallet-connect"
+import { useAccount } from "wagmi"
+import Link from "next/link"
+import { Shield } from "lucide-react"
+
+const ADMIN_ENS = 'aiancestry.base.eth'
 
 export default function Home() {
+  const { address } = useAccount()
+  
+  // Check if current user is admin (simplified check for demo)
+  const isAdmin = address && (
+    address.toLowerCase() === ADMIN_ENS.toLowerCase() ||
+    address.toLowerCase().includes('aiancestry') // Fallback for testing
+  )
+
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-[#333333]">
       <div className="container mx-auto px-4 py-8 md:py-12 max-w-5xl">
         <header className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-medium text-[#333333]">BUSK.Radio</h1>
-          <WalletConnect />
+          <div className="flex items-center gap-4">
+            {isAdmin && (
+              <Link 
+                href="/admin" 
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Shield className="h-4 w-4" />
+                Admin Dashboard
+              </Link>
+            )}
+            <WalletConnect />
+          </div>
         </header>
         <RadioStation />
       </div>
