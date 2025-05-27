@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Mic, Music, MessageSquare, Send, Clock, Users } from "lucide-react"
+import { Mic, Music, MessageSquare, Send, Clock, Users, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
+import { OnchainCheckout } from "@/components/onchain-checkout"
 
 interface RequestsPanelProps {
   currentShow: {
@@ -27,6 +28,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [callInCountdown, setCallInCountdown] = useState<number>(0)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [showTipModal, setShowTipModal] = useState(false)
   const [queuePosition, setQueuePosition] = useState<number | null>(null)
   const { toast } = useToast()
 
@@ -61,6 +63,13 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
       description: "Talk to the DJ live on air", 
       icon: <Mic size={20} />,
       color: "from-orange-500 to-red-500",
+    },
+    {
+      id: "tipJar",
+      name: "Tip Your DJ",
+      description: "Show appreciation for your favorite DJ",
+      icon: <Heart size={20} />,
+      color: "from-pink-500 to-rose-500",
     },
   ]
 
@@ -98,6 +107,10 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
   const requests = currentShow.type === "music" ? musicRequests : talkRequests
 
   const handleRequestClick = (id: string) => {
+    if (id === "tipJar") {
+      setShowTipModal(true)
+      return
+    }
     setSelectedRequest(id)
     setRequestType(id)
   }
@@ -202,36 +215,105 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
 
   return (
     <div className="space-y-4">
+      {/* Tip Jar Modal */}
+      {showTipModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full border border-[#e0e0e0]"
+          >
+            <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
+              <Heart className="text-pink-500" size={24} />
+              Tip Your DJ
+            </h4>
+            <p className="mb-4 text-sm text-[#666666]">
+              Show your appreciation for the amazing music and entertainment!
+            </p>
+            <div className="space-y-3 mb-4">
+              {[
+                { amount: 1, label: "Coffee", emoji: "☕" },
+                { amount: 5, label: "Lunch", emoji: "🍔" },
+                { amount: 10, label: "Pizza", emoji: "🍕" },
+                { amount: 25, label: "Concert Ticket", emoji: "🎫" },
+              ].map((option) => (
+                <div key={option.amount} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{option.emoji}</span>
+                    <div>
+                      <p className="font-medium">{option.label}</p>
+                      <p className="text-sm text-[#666666]">${option.amount}</p>
+                    </div>
+                  </div>
+                  <OnchainCheckout
+                    amount={option.amount}
+                    description={`Tip for DJ - ${option.label}`}
+                    buttonText={`Tip $${option.amount}`}
+                    onSuccess={() => {
+                      setShowTipModal(false)
+                      toast({
+                        title: "Thank you for your tip!",
+                        description: `Your $${option.amount} tip means a lot to us! ${option.emoji}`,
+                        duration: 5000,
+                      })
+                    }}
+                    className="px-4 py-2"
+                  />
+                </div>
+              ))}
+            </div>
+            <Button 
+              variant="ghost" 
+              className="w-full" 
+              onClick={() => setShowTipModal(false)}
+            >
+              Maybe Later
+            </Button>
+          </motion.div>
+        </div>
+      )}
+
       {/* Payment Modal for Call-In */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-zinc-900 p-6 rounded-lg shadow-xl max-w-sm w-full"
+            className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full border border-[#e0e0e0]"
           >
             <h4 className="font-semibold text-lg mb-3">Select Call-In Duration</h4>
-            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            <p className="mb-4 text-sm text-[#666666]">
               Choose how long you'd like to talk with the DJ
             </p>
-            <div className="space-y-2 mb-4">
+            <div className="space-y-3 mb-4">
               {[
                 { duration: 30, price: 2, label: "30 seconds" },
                 { duration: 60, price: 4, label: "1 minute" },
                 { duration: 90, price: 6, label: "1.5 minutes" },
               ].map((option) => (
-                <Button 
-                  key={option.duration} 
-                  className="w-full justify-between group hover:shadow-md transition-all"
-                  variant="outline"
-                  onClick={() => handlePayment(option.duration)}
-                >
-                  <span className="font-medium">${option.price}</span>
-                  <span className="text-sm">{option.label}</span>
-                  <Badge className="ml-2 bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                    Popular
-                  </Badge>
-                </Button>
+                <div key={option.duration} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <p className="font-medium">{option.label}</p>
+                      <p className="text-sm text-[#666666]">${option.price}</p>
+                    </div>
+                    {option.duration === 60 && (
+                      <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                        Popular
+                      </Badge>
+                    )}
+                  </div>
+                  <OnchainCheckout
+                    amount={option.price}
+                    description={`Call-in with DJ - ${option.label}`}
+                    buttonText={`Pay $${option.price}`}
+                    onSuccess={() => {
+                      setShowPaymentModal(false)
+                      handlePayment(option.duration)
+                    }}
+                    className="px-4 py-2"
+                  />
+                </div>
               ))}
             </div>
             <Button 
@@ -280,7 +362,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
         <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
           {currentShow.type === "music" ? "Music Show Requests" : "Talk Show Interactions"}
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-[#666666]">
           Select an option to interact with {currentShow.name}
         </p>
       </div>
@@ -296,7 +378,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => handleRequestClick(request.id)}
-              className="relative overflow-hidden bg-white dark:bg-zinc-900 rounded-lg shadow-sm hover:shadow-lg transition-all p-4 text-left group"
+              className="relative overflow-hidden bg-white rounded-lg border border-[#e0e0e0] hover:border-[#ff5722] shadow-sm hover:shadow-md transition-all p-4 text-left group"
             >
               <div className={`absolute inset-0 bg-gradient-to-r ${request.color} opacity-0 group-hover:opacity-10 transition-opacity`} />
               <div className="relative flex items-start gap-3">
@@ -304,8 +386,8 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                   {request.icon}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100">{request.name}</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{request.description}</p>
+                  <h4 className="font-medium text-[#333333]">{request.name}</h4>
+                  <p className="text-sm text-[#666666] mt-1">{request.description}</p>
                 </div>
               </div>
             </motion.button>
@@ -315,7 +397,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white dark:bg-zinc-900 rounded-lg shadow-lg p-6"
+          className="bg-white rounded-lg shadow-lg p-6 border border-[#e0e0e0]"
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -323,7 +405,7 @@ export function RequestsPanel({ currentShow, onRequestSuccess }: RequestsPanelPr
                 {requests.find(r => r.id === selectedRequest)?.icon}
                 {requests.find(r => r.id === selectedRequest)?.name}
               </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-sm text-[#666666] mb-4">
                 {requests.find(r => r.id === selectedRequest)?.description}
               </p>
             </div>

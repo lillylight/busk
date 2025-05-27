@@ -119,9 +119,10 @@ export function RadioStation() {
       const currentHour = now.getHours()
       const timeOfDay = currentHour < 12 ? "morning" : currentHour < 17 ? "afternoon" : currentHour < 21 ? "evening" : "night"
       
-      // Get recent songs to mention
+      // Get recent songs to mention - ensure no duplicates
       const recentSongs = recentSongsRef.current.slice(-3) // Last 3 songs
-      const songList = recentSongs.map(s => `"${s.title}" by ${s.artist}`).join(", ")
+      const uniqueSongs = Array.from(new Map(recentSongs.map(s => [`${s.title}-${s.artist}`, s])).values())
+      const songList = uniqueSongs.map(s => `"${s.title}" by ${s.artist}`).join(", ")
       
       // Create contextual commentary based on show type and time
       let commentaryOptions = []
@@ -146,6 +147,11 @@ export function RadioStation() {
       
       setHostDialogue(djCommentary)
       
+      // Clear the dialogue after 30 seconds
+      setTimeout(() => {
+        setHostDialogue("")
+      }, 30000)
+      
       // Use TTS for DJ commentary (broadcast to all) - this should take about 30 seconds
       const response = await fetch('/api/text-to-speech', {
         method: 'POST',
@@ -155,7 +161,7 @@ export function RadioStation() {
         body: JSON.stringify({
           text: djCommentary,
           voice: currentShow.voiceProfile || 'echo',
-          model: 'tts-1-hd', // Use HD model for better quality
+          model: 'gpt-4o-mini-tts', // Use new model with custom voice instructions
           speed: 0.95, // Natural speaking pace
         }),
       });
@@ -208,6 +214,11 @@ export function RadioStation() {
       
       setHostDialogue(welcomeMessage)
       
+      // Clear the welcome message after 15 seconds
+      setTimeout(() => {
+        setHostDialogue("")
+      }, 15000)
+      
       // Use TTS for welcome message (same as DJ commentary)
       const response = await fetch('/api/text-to-speech', {
         method: 'POST',
@@ -217,7 +228,7 @@ export function RadioStation() {
         body: JSON.stringify({
           text: welcomeMessage,
           voice: currentShow.voiceProfile || 'echo',
-          model: 'tts-1-hd',
+          model: 'gpt-4o-mini-tts', // Use new model with custom voice instructions
           speed: 0.95,
         }),
       });

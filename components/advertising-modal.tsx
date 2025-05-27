@@ -17,8 +17,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, CreditCard, Check, Upload } from "lucide-react"
+import { Loader2, CreditCard, Check, Upload, Clock, Badge } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { OnchainCheckout } from "@/components/onchain-checkout"
 
 interface AdvertisingModalProps {
   isOpen: boolean
@@ -30,6 +31,7 @@ export function AdvertisingModal({ isOpen, onClose }: AdvertisingModalProps) {
   const [adScript, setAdScript] = useState("")
   const [selectedShow, setSelectedShow] = useState("")
   const [adType, setAdType] = useState<"script" | "audio">("script")
+  const [packageType, setPackageType] = useState<"standard" | "branded">("standard")
   const [isProcessing, setIsProcessing] = useState(false)
   const [cardNumber, setCardNumber] = useState("")
   const [expiry, setExpiry] = useState("")
@@ -53,6 +55,7 @@ export function AdvertisingModal({ isOpen, onClose }: AdvertisingModalProps) {
 
     try {
       // Call our advertising API
+      const amount = packageType === "branded" ? 100 : 50
       const response = await fetch("/api/advertising", {
         method: "POST",
         headers: {
@@ -63,7 +66,8 @@ export function AdvertisingModal({ isOpen, onClose }: AdvertisingModalProps) {
           adScript,
           selectedShow,
           adType,
-          amount: 50, // $50 for advertising
+          packageType,
+          amount,
         }),
       })
 
@@ -152,15 +156,81 @@ export function AdvertisingModal({ isOpen, onClose }: AdvertisingModalProps) {
     >
       <DialogContent className="sm:max-w-[500px] bg-[#f5f5f5] border-[#e0e0e0] text-[#333333]">
         <DialogHeader>
-          <DialogTitle className="text-xl">Place an Advertisement - $50</DialogTitle>
+          <DialogTitle className="text-xl">Place an Advertisement</DialogTitle>
           <DialogDescription className="text-[#666666]">
-            Advertise your product or service on AI Radio.
+            Choose your advertising package and reach thousands of listeners.
           </DialogDescription>
         </DialogHeader>
 
         {paymentStep === "form" && (
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4 py-4">
+              {/* Package Selection */}
+              <div className="grid gap-3">
+                <Label className="text-[#333333]">Select Package</Label>
+                <div className="grid grid-cols-1 gap-3">
+                  <div 
+                    className={`relative border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      packageType === "standard" 
+                        ? "border-[#ff5722] bg-[#ff5722]/5" 
+                        : "border-[#e0e0e0] hover:border-[#999999]"
+                    }`}
+                    onClick={() => setPackageType("standard")}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-[#333333]">Standard Advertisement</h4>
+                        <p className="text-sm text-[#666666] mt-1">
+                          Your ad will be read during the selected show
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-[#ff5722]">$50</p>
+                        <p className="text-xs text-[#666666]">per ad</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    className={`relative border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      packageType === "branded" 
+                        ? "border-[#ff5722] bg-[#ff5722]/5" 
+                        : "border-[#e0e0e0] hover:border-[#999999]"
+                    }`}
+                    onClick={() => setPackageType("branded")}
+                  >
+                    <Badge className="absolute top-2 right-2 bg-gradient-to-r from-[#ff5722] to-[#f4511e] text-white">
+                      PREMIUM
+                    </Badge>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-[#333333]">Branded Time Slot</h4>
+                        <p className="text-sm text-[#666666] mt-1">
+                          "This hour brought to you by {companyName || '[Your Company]'}"
+                        </p>
+                        <ul className="text-xs text-[#666666] mt-2 space-y-1">
+                          <li className="flex items-center gap-1">
+                            <Check className="h-3 w-3 text-[#4caf50]" />
+                            Full hour sponsorship
+                          </li>
+                          <li className="flex items-center gap-1">
+                            <Check className="h-3 w-3 text-[#4caf50]" />
+                            Mentioned every 15 minutes
+                          </li>
+                          <li className="flex items-center gap-1">
+                            <Check className="h-3 w-3 text-[#4caf50]" />
+                            1 week duration
+                          </li>
+                        </ul>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-[#ff5722]">$100</p>
+                        <p className="text-xs text-[#666666]">per week</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor="companyName" className="text-[#333333]">
                   Company Name
@@ -265,57 +335,9 @@ export function AdvertisingModal({ isOpen, onClose }: AdvertisingModalProps) {
                 </div>
               )}
 
-              <div className="grid gap-2">
-                <Label htmlFor="card" className="text-[#333333]">
-                  Card Number
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="card"
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                    placeholder="1234 5678 9012 3456"
-                    maxLength={19}
-                    required
-                    className="bg-white border-[#e0e0e0] text-[#333333] pl-10"
-                  />
-                  <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#999999]" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="expiry" className="text-[#333333]">
-                    Expiry Date
-                  </Label>
-                  <Input
-                    id="expiry"
-                    value={expiry}
-                    onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    required
-                    className="bg-white border-[#e0e0e0] text-[#333333]"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="cvc" className="text-[#333333]">
-                    CVC
-                  </Label>
-                  <Input
-                    id="cvc"
-                    value={cvc}
-                    onChange={(e) => setCvc(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder="123"
-                    maxLength={3}
-                    required
-                    className="bg-white border-[#e0e0e0] text-[#333333]"
-                  />
-                </div>
-              </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex items-center justify-between">
               <Button
                 type="button"
                 variant="outline"
@@ -325,9 +347,63 @@ export function AdvertisingModal({ isOpen, onClose }: AdvertisingModalProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isProcessing} className="bg-[#ff5722] hover:bg-[#f4511e] text-white">
-                Pay $50
-              </Button>
+              {companyName && selectedShow && (adType === "audio" || adScript) ? (
+                <OnchainCheckout
+                  amount={packageType === "branded" ? 100 : 50}
+                  description={`${packageType === "branded" ? "Branded Time Slot" : "Standard Advertisement"} - ${selectedShow}`}
+                  buttonText={`Pay $${packageType === "branded" ? "100" : "50"}`}
+                  onSuccess={async () => {
+                    setPaymentStep("processing")
+                    
+                    // Save advertisement details
+                    try {
+                      const response = await fetch("/api/advertising", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                          companyName,
+                          adScript,
+                          selectedShow,
+                          adType,
+                          packageType,
+                          amount: packageType === "branded" ? 100 : 50,
+                        }),
+                      })
+
+                      if (!response.ok) {
+                        throw new Error("Failed to save advertisement")
+                      }
+
+                      setPaymentStep("success")
+                      
+                      setTimeout(() => {
+                        onClose()
+                        resetForm()
+                        toast({
+                          title: "Advertisement Placed",
+                          description: "Your advertisement has been scheduled successfully!",
+                          duration: 5000,
+                        })
+                      }, 1500)
+                    } catch (error) {
+                      console.error("Error saving advertisement:", error)
+                      toast({
+                        title: "Error",
+                        description: "Payment successful but failed to save advertisement. Please contact support.",
+                        variant: "destructive",
+                      })
+                      setPaymentStep("form")
+                    }
+                  }}
+                  className="px-6 py-2"
+                />
+              ) : (
+                <Button disabled className="bg-gray-400 text-white cursor-not-allowed">
+                  Complete Form First
+                </Button>
+              )}
             </DialogFooter>
           </form>
         )}

@@ -160,7 +160,7 @@ export class WebRTCSession {
         body: JSON.stringify({
           text,
           voice: this.sessionConfig.voice || 'echo',
-          model: 'tts-1-hd', // Use HD model for better quality
+          model: 'gpt-4o-mini-tts', // Use new model with custom voice instructions
           speed: 0.95, // Slightly slower for more natural speech
         }),
       });
