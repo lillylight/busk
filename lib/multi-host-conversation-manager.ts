@@ -137,21 +137,31 @@ export class MultiHostConversationManager {
 
   // Queue a turn for playback
   private async queueTurn(turn: ConversationTurn) {
-    // Generate TTS audio
-    const audioData = await this.ttsService.generateSpeech(turn.message, turn.voice);
-    turn.audioBuffer = audioData;
-    
-    // Add to queue
-    this.speakingQueue.push(turn);
-    
-    // Notify listeners
-    if (this.onConversationUpdate) {
-      this.onConversationUpdate(turn);
-    }
-    
-    // Start playback if not already playing
-    if (!this.currentSpeaker) {
-      this.playNextInQueue();
+    try {
+      // Generate TTS audio using the TTS service
+      const audioPath = await ttsService.textToSpeech(turn.message, { 
+        voice: turn.voice as any,
+        instructions: `You are ${turn.hostId}, a radio show host. Speak naturally and conversationally.`
+      });
+      
+      // Get audio buffer from file
+      const audioBuffer = ttsService.getAudioBuffer(audioPath);
+      turn.audioBuffer = audioBuffer.buffer.slice(audioBuffer.byteOffset, audioBuffer.byteOffset + audioBuffer.byteLength) as ArrayBuffer;
+      
+      // Add to queue
+      this.speakingQueue.push(turn);
+      
+      // Notify listeners
+      if (this.onConversationUpdate) {
+        this.onConversationUpdate(turn);
+      }
+      
+      // Start playback if not already playing
+      if (!this.currentSpeaker) {
+        this.playNextInQueue();
+      }
+    } catch (error) {
+      console.error('Error generating TTS audio:', error);
     }
   }
 
@@ -184,9 +194,18 @@ export class MultiHostConversationManager {
 
   // Play audio buffer
   private async playAudio(audioBuffer: ArrayBuffer): Promise<void> {
+    if (!this.audioContext) {
+      console.error('AudioContext not initialized');
+      return;
+    }
+
     return new Promise((resolve) => {
-      const audioData = this.audioContext.decodeAudioData(audioBuffer);
-      audioData.then(buffer => {
+      this.audioContext!.decodeAudioData(audioBuffer).then(buffer => {
+        if (!this.audioContext) {
+          resolve();
+          return;
+        }
+        
         this.currentSource = this.audioContext.createBufferSource();
         this.currentSource.buffer = buffer;
         this.currentSource.connect(this.audioContext.destination);
@@ -195,6 +214,9 @@ export class MultiHostConversationManager {
           resolve();
         };
         this.currentSource.start();
+      }).catch(error => {
+        console.error('Error decoding audio:', error);
+        resolve();
       });
     });
   }
