@@ -24,7 +24,7 @@ export function WalletConnect() {
         <Avatar className="h-6 w-6" />
         <Name />
       </ConnectWallet>
-      <WalletDropdown>
+      <WalletDropdown className="z-[100]">
         <Identity 
           className="px-4 pt-3 pb-2" 
           hasCopyAddressOnClick
